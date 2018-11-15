@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+
 #判断系统
 if [ ! -e '/etc/redhat-release' ]; then
 echo "仅支持centos7"
@@ -19,15 +21,15 @@ update_kernel(){
     sed -i "0,/enabled=0/s//enabled=1/" /etc/yum.repos.d/epel.repo
     yum remove -y kernel-devel
     rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
-    rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm
+    rpm -Uvh https://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm
     yum --disablerepo="*" --enablerepo="elrepo-kernel" list available
     yum -y --enablerepo=elrepo-kernel install kernel-ml
     sed -i "s/GRUB_DEFAULT=saved/GRUB_DEFAULT=0/" /etc/default/grub
     grub2-mkconfig -o /boot/grub2/grub.cfg
-    wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-devel-4.19.1-1.el7.elrepo.x86_64.rpm
-    rpm -ivh kernel-ml-devel-4.19.1-1.el7.elrepo.x86_64.rpm
+    wget https://elrepo.org/linux/kernel/el7/x86_64/RPMS/kernel-ml-devel-4.19.2-1.el7.elrepo.x86_64.rpm
+    rpm -ivh kernel-ml-devel-4.19.2-1.el7.elrepo.x86_64.rpm
     yum -y --enablerepo=elrepo-kernel install kernel-ml-devel
-    read -p "需要重启VPS，再次执行脚本选择安装wireguard，是否现在重启 ? [Y/n] :" yn
+    read -p "需要重启VPS，再次执行脚本选择安装wireguard，是否现在重启 ? [Y/N] :" yn
 	[ -z "${yn}" ] && yn="y"
 	if [[ $yn == [Yy] ]]; then
 		echo -e "${Info} VPS 重启中..."
@@ -48,7 +50,7 @@ cat > /etc/wireguard/client.conf <<-EOF
 [Interface]
 PrivateKey = $c1
 Address = 10.0.0.2/24 
-DNS = 8.8.8.8
+DNS = 1.1.1.1
 MTU = 1420
 
 [Peer]
@@ -97,7 +99,7 @@ Address = 10.0.0.1/24
 PostUp   = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 ListenPort = $port
-DNS = 8.8.8.8
+DNS = 1.1.1.1
 MTU = 1420
 
 [Peer]
@@ -116,15 +118,9 @@ EOF
 #开始菜单
 start_menu(){
     clear
-    echo "========================="
-    echo " 介绍：适用于CentOS7"
-    echo " 作者：atrandys"
-    echo " 网站：www.atrandys.com"
-    echo " Youtube：atrandys"
-    echo "========================="
     echo "1. 升级系统内核"
     echo "2. 安装wireguard"
-    echo "3. 退出脚本"
+    echo "3. 退出"
     echo
     read -p "请输入数字:" num
     case "$num" in
@@ -147,6 +143,3 @@ start_menu(){
 }
 
 start_menu
-
-
-
