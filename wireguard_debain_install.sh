@@ -67,7 +67,7 @@ show_client_conf()
 	echo "\033[32m"
 	echo "*********************************************************"
 	echo "复制以下红色内容，在Chrome安装Offline QRcode Generator"
-	echo "插件生成二维码，在WireGuard客户端扫描导入生成的二维码"
+	echo "插件生成二维码, 在WireGuard客户端扫描导入生成的二维码"
 	echo "*********************************************************"
 	echo "\033[0m"
 	echo "====================================================="
@@ -131,7 +131,9 @@ configure_wireguard()
 	[Interface]
 	PrivateKey = $CLIENT_PRIV
 	Address = $ip/32
+	MTU = 1200
 	DNS = 1.1.1.1
+
 
 	[Peer]
 	AllowedIPs = 0.0.0.0/0
@@ -174,6 +176,7 @@ add_peer_udp2raw()
 	[Interface]
 	PrivateKey = $(cat client_priv)
 	Address = $ip/32
+	MTU = 1200
 	DNS = 1.1.1.1
 	PreUp = udp2raw -c -l0.0.0.0:$(cat /etc/wireguard/udp2raw_port) -r$SERVER_PUBLIC_IP:$(cat /etc/wireguard/udp2raw_port) -k $(cat /etc/wireguard/udp2raw_password) --raw-mode faketcp --cipher-mode xor -a > /var/log/udp2raw.log &
 	PostUp = ip rule add to $SERVER_PUBLIC_IP table main
@@ -221,6 +224,7 @@ add_peer()
 	[Interface]
 	PrivateKey = $(cat client_priv)
 	Address = $ip/32
+	MTU = 1200
 	DNS = 1.1.1.1
 
 	[Peer]
@@ -270,9 +274,9 @@ start_menu(){
     echo "1. 重新安装配置Wireguard"
     echo "2. 增加用户"
     echo "3. 增加用户(udp2raw配置)"
-    echo "4. 删除用户"
+    echo "4. 删除"
     echo "5. 用户列表"
-    echo "6. 退出"
+    echo "6. 退出脚本"
     read -p "请输入数字:" num
     case "$num" in
     	1)
