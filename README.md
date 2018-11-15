@@ -1,4 +1,4 @@
 # wireguard
-#### For CentOS7
+#### For CentOS7 & Debian 9
 
 
