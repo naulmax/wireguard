@@ -76,7 +76,7 @@ wireguard_install(){
     s2=$(cat spublickey)
     c1=$(cat cprivatekey)
     c2=$(cat cpublickey)
-    serverip=$(curl icanhazip.com)
+    serverip=$(curl ipinfo.io/ip)
     port=$(rand 10000 60000)
     chmod 777 -R /etc/wireguard
     systemctl stop firewalld
