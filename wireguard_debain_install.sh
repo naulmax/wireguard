@@ -282,7 +282,7 @@ list_peer()
 }
 
 start_menu(){
-    echo "1. 重新安装配置Wireguard"
+    echo "1. 安装配置Wireguard"
     echo "2. 增加用户"
     echo "3. 增加用户(udp2raw配置)"
     echo "4. 删除"
