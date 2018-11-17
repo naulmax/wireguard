@@ -116,8 +116,11 @@ configure_wireguard()
 	PrivateKey = $SERVER_PRIV
 	Address = $SUBNET.1/24
 	PreUp = udp2raw -s -l0.0.0.0:$UDP2RAW_PORT -r127.0.0.1:$PORT -k $UDP2RAW_PASSWORD --raw-mode faketcp --cipher-mode xor -a > /var/log/udp2raw.log &
-	PostUp   = sysctl net.ipv4.ip_forward=1 ; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-	PostDown = sysctl net.ipv4.ip_forward=0 ;iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE ; killall udp2raw
+	PostUp   = sysctl net.ipv4.ip_forward=1
+	PostUp   = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+    PostDown = sysctl net.ipv4.ip_forward=0
+	PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+    PostDown = killall udp2raw
 	ListenPort = $PORT
 	#DNS = 1.1.1.1
 	MTU = 1200
@@ -164,6 +167,9 @@ add_peer_udp2raw()
 		return;
 	fi
 
+	read -p "请输入局域网网段(例如192.168.0.0): " lan_ip
+	
+	
 	SERVER_PUBLIC_IP=$(get_public_ip)
 	subnet=$(cat /etc/wireguard/subnet)
 
@@ -180,7 +186,12 @@ add_peer_udp2raw()
 	DNS = 1.1.1.1
 	PreUp = udp2raw -c -l0.0.0.0:$(cat /etc/wireguard/udp2raw_port) -r$SERVER_PUBLIC_IP:$(cat /etc/wireguard/udp2raw_port) -k $(cat /etc/wireguard/udp2raw_password) --raw-mode faketcp --cipher-mode xor -a > /var/log/udp2raw.log &
 	PostUp = ip rule add to $SERVER_PUBLIC_IP table main
-	PostDown = ip rule del to $SERVER_PUBLIC_IP table main; killall udp2raw
+	PostUp = iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -o wg0 -j TCPMSS  --clamp-mss-to-pmtu
+	PostUp =  sysctl net.ipv4.ip_forward=1
+	PostDown = killall udp2raw
+	PostDown = iptables -D FORWARD -p tcp --tcp-flags SYN,RST SYN -o wg0 -j TCPMSS  --clamp-mss-to-pmtu
+    PostDown = sysctl net.ipv4.ip_forward=0
+    PostDown = ip rule del to $SERVER_PUBLIC_IP table main
 
 	[Peer]
 	AllowedIPs = 0.0.0.0/0
@@ -189,7 +200,7 @@ add_peer_udp2raw()
 
 	EOF
 
-	wg set wg0 peer $(cat client_pub) allowed-ips $ip/32
+	wg set wg0 peer $(cat client_pub) allowed-ips $ip/32,$lan_ip/24 
 
 	echo "$peer_name $(cat client_priv) $ip" >> /etc/wireguard/peers
 	echo $ip > /etc/wireguard/lastip
@@ -276,7 +287,7 @@ start_menu(){
     echo "3. 增加用户(udp2raw配置)"
     echo "4. 删除"
     echo "5. 用户列表"
-    echo "6. 退出脚本"
+    echo "6. 退出"
     read -p "请输入数字:" num
     case "$num" in
     	1)
