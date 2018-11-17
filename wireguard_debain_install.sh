@@ -2,7 +2,7 @@
 
 
 
-SUBNET=192.168.100
+SUBNET=10.0.0
 
 ###############
 
@@ -167,7 +167,7 @@ add_peer_udp2raw()
 		return;
 	fi
 
-	read -p "请输入局域网网段(例如192.168.0.0): " lan_ip
+	read -p "请输入局域网网段(例如10.0.0.0): " lan_ip
 	
 	
 	SERVER_PUBLIC_IP=$(get_public_ip)
