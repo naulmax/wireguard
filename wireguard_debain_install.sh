@@ -66,7 +66,7 @@ show_client_conf()
 	echo ""
 	echo "\033[32m"
 	echo "*********************************************************"
-	echo "复制以下红色内容，在谷歌浏览器安装Offline QRcode Generator"
+	echo "复制以下红色内容，在Chrome安装Offline QRcode Generator"
 	echo "插件生成二维码, 在WireGuard客户端扫描导入生成的二维码"
 	echo "*********************************************************"
 	echo "\033[0m"
@@ -288,17 +288,12 @@ list_peer()
 }
 
 start_menu(){
-    echo "========================="
-    echo " 作者：基于atrandys版本修改"
-    echo "========================="
-    echo "1. 重新安装配置Wireguard"
+    echo "1. 安装配置Wireguard"
     echo "2. 增加用户"
     echo "3. 增加用户(udp2raw配置)"
-    echo "4. 删除用户"
-    
+    echo "4. 删除"
     echo "5. 用户列表"
-
-    echo "6. 退出脚本"
+    echo "6. 退出"
     read -p "请输入数字:" num
     case "$num" in
     	1)
