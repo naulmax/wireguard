@@ -45,6 +45,11 @@ rand(){
     echo $(($num%$max+$min))  
 }
 
+wireguard_update(){
+    yum update -y wireguard-dkms wireguard-tools
+    echo "更新完成"
+}
+
 config_client(){
 cat > /etc/wireguard/client.conf <<-EOF
 [Interface]
@@ -122,6 +127,8 @@ start_menu(){
     echo "1. 升级系统内核"
     echo "2. 安装wireguard"
     echo "3. 退出"
+    echo "4. 升级wireguard"
+    echo "5. 退出"
     echo
     read -p "请输入数字:" num
     case "$num" in
@@ -132,6 +139,9 @@ start_menu(){
 	wireguard_install
 	;;
 	3)
+	wireguard_update
+	;;
+	4)
 	exit 1
 	;;
 	*)
