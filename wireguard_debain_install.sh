@@ -4,7 +4,7 @@
 
 SUBNET=192.168.100
 
-###############
+################
 
 umask 077
 
@@ -50,16 +50,6 @@ install_wireguard()
 	fi
 }
 
-build_udp2raw()
-{
-	rm -rf udp2raw-tunnel
-	git clone https://github.com/wangyu-/udp2raw-tunnel.git
-	cd udp2raw-tunnel
-	make
-	cp udp2raw  /usr/local/bin
-	cd -
-}
-
 
 show_client_conf()
 {
@@ -83,8 +73,6 @@ show_client_conf()
 configure_wireguard()
 {	
 	install_wireguard
-	build_udp2raw
-
 	wg-quick down wg0 2>/dev/null
 	rm -rf /etc/wireguard/*
 	echo "正在获取服务器公网IP地址"
@@ -101,29 +89,20 @@ configure_wireguard()
 
 	echo $SERVER_PUB > /etc/wireguard/server_pubkey
 	
-	PORT=$(rand 30000 60000)
-	UDP2RAW_PORT=$(rand 10000 30000)
-	UDP2RAW_PASSWORD=$(cat /dev/urandom | head -n 10 | md5sum | head -c 12)
-
-	echo $UDP2RAW_PORT > /etc/wireguard/udp2raw_port
-	echo $UDP2RAW_PASSWORD > /etc/wireguard/udp2raw_password
-
-	mv /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.bak  2> /dev/null
+	PORT=$(rand 10000 60000)
+	
+        mv /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.bak  2> /dev/null
 
 	ip=$SUBNET.2
 	cat > /etc/wireguard/wg0.conf <<-EOF
 	[Interface]
 	PrivateKey = $SERVER_PRIV
 	Address = $SUBNET.1/24
-	PreUp = udp2raw -s -l0.0.0.0:$UDP2RAW_PORT -r127.0.0.1:$PORT -k $UDP2RAW_PASSWORD --raw-mode faketcp --cipher-mode xor -a > /var/log/udp2raw.log &
-	PostUp   = sysctl net.ipv4.ip_forward=1
-	PostUp   = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-	PostDown = sysctl net.ipv4.ip_forward=0 ;
-	PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
-	PostDown = killall udp2raw
+	PostUp   = sysctl net.ipv4.ip_forward=1 ; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+	PostDown = sysctl net.ipv4.ip_forward=0 ;iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
 	ListenPort = $PORT
 	DNS = 1.1.1.1
-	MTU = 1200
+	MTU = 1300
 
 	[Peer]
 	PublicKey = $CLIENT_PUB
@@ -134,9 +113,8 @@ configure_wireguard()
 	[Interface]
 	PrivateKey = $CLIENT_PRIV
 	Address = $ip/32
-	MTU = 1200
 	DNS = 1.1.1.1
-
+	MTU = 1300
 
 	[Peer]
 	AllowedIPs = 0.0.0.0/0
@@ -158,74 +136,6 @@ configure_wireguard()
 	rm client.conf
 }
 
-add_peer_udp2raw()
-{
-	read -p  "请输入要增加的用户名(英文+数字): "  peer_name
-
-	if [ -d /etc/wireguard/clients/$peer_name ]; then
-		echo "用户已经存在"
-		return;
-	fi
-
-	read -p "请输入局域网网段(例如192.168.0.0): "  lan_ip
-
-
-	SERVER_PUBLIC_IP=$(get_public_ip)
-	subnet=$(cat /etc/wireguard/subnet)
-
-	ip=$subnet.$(expr $(cat /etc/wireguard/lastip | tr "." " " | awk '{print $4}') + 1)
-
-
-	wg genkey | tee client_priv | wg pubkey > client_pub
-
-	cat > client.conf <<-EOF
-	[Interface]
-	PrivateKey = $(cat client_priv)
-	Address = $ip/32
-	MTU = 1200
-	DNS = 1.1.1.1
-
-	PreUp = udp2raw -c -l0.0.0.0:$(cat /etc/wireguard/udp2raw_port) -r$SERVER_PUBLIC_IP:$(cat /etc/wireguard/udp2raw_port) -k $(cat /etc/wireguard/udp2raw_password) --raw-mode faketcp --cipher-mode xor -a > /var/log/udp2raw.log &
-	PostUp = iptables -A POSTROUTING -t mangle -p tcp --tcp-flags SYN,RST SYN -o wg0 -j TCPMSS  --clamp-mss-to-pmtu
-	PostUp = iptables -t mangle -A OUTPUT -m set --match-set gfwlist dst -j  MARK  --set-mark 2222
-	PostUp = iptables -t mangle -A PREROUTING -m set --match-set gfwlist dst -j  MARK  --set-mark 2222
-	PostUp = ip rule add fwmark 51820 lookup main
-	PostUp = ip rule add fwmark 2222 lookup 51820
-	PostUp = ip rule add to 8.8.8.8 lookup 51820
-	PostUp = ip rule add to $SERVER_PUBLIC_IP table main
-	PostUp = ip rule add to $SUBNET.0/24 lookup 51820
-	PostUp = ip rule del not fwmark 51820 lookup 51820
-	PostUp = sysctl net.ipv4.ip_forward=1
-
-	PostDown = killall udp2raw || echo "no udp2raw"
-	PostDown = iptables -D POSTROUTING -t mangle -p tcp --tcp-flags SYN,RST SYN -o wg0 -j TCPMSS  --clamp-mss-to-pmtu
-	PostDown = iptables -t mangle -D OUTPUT -m set --match-set gfwlist dst -j  MARK  --set-mark 2222
-	PostDown = iptables -t mangle -D PREROUTING -m set --match-set gfwlist dst -j  MARK  --set-mark 2222
-	PostDown = sysctl net.ipv4.ip_forward=0
-
-	[Peer]
-	AllowedIPs = 0.0.0.0/0
-	Endpoint = 127.0.0.1:$(cat /etc/wireguard/udp2raw_port)
-	PublicKey = $(wg | grep 'public key:' | awk '{print $3}')
-
-	EOF
-
-	wg set wg0 peer $(cat client_pub) allowed-ips $ip/32,$lan_ip/24
-
-	echo "$peer_name $(cat client_priv) $ip" >> /etc/wireguard/peers
-	echo $ip > /etc/wireguard/lastip
-
-	wg-quick save wg0
-
-	mkdir -p /etc/wireguard/clients/$peer_name/
-	cp client.conf /etc/wireguard/clients/$peer_name/
-
-	show_client_conf
-	rm client.conf
-	rm client_*
-}
-
-
 add_peer() 
 {
 	read -p  "请输入要增加的用户名(英文+数字): "  peer_name
@@ -245,8 +155,8 @@ add_peer()
 	[Interface]
 	PrivateKey = $(cat client_priv)
 	Address = $ip/32
-	MTU = 1200
 	DNS = 1.1.1.1
+	MTU = 1300
 
 	[Peer]
 	AllowedIPs = 0.0.0.0/0
@@ -269,7 +179,6 @@ add_peer()
 	rm client.conf
 	rm client_*
 }
-
 
 delete_peer()
 {
@@ -294,30 +203,24 @@ list_peer()
 start_menu(){
     echo "1. 安装配置Wireguard"
     echo "2. 增加用户"
-    echo "3. 增加用户(udp2raw)"
-    echo "4. 删除用户"
-    echo "5. 用户列表"
-    echo "6. 退出"
+    echo "3. 删除用户"
+    echo "4. 用户列表"
+    echo "5. 退出"
     read -p "请输入数字:" num
     case "$num" in
-    	1)
+    1)
 		configure_wireguard
 	;;
 	2)
 		add_peer
 	;;
-
-	3)
-		add_peer_udp2raw
-	;;
-
-	4)
+    3)
 		delete_peer
 	;;
-	5)
+	4)
 		list_peer
 	;;
-	6)
+	5)
 		exit 1
 	;;
 	*)
