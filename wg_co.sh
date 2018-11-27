@@ -50,6 +50,12 @@ wireguard_update(){
     echo "更新完成"
 }
 
+wireguard_remove(){
+    yum remove -y wireguard-dkms wireguard-tools
+    rm -rf /etc/wireguard/
+    echo "卸载完成"
+}
+
 config_client(){
 cat > /etc/wireguard/client.conf <<-EOF
 [Interface]
@@ -126,9 +132,9 @@ start_menu(){
     clear
     echo "1. 升级系统内核"
     echo "2. 安装wireguard"
-    echo "3. 退出"
-    echo "4. 升级wireguard"
-    echo "5. 退出"
+    echo "3. 升级wireguard"
+    echo "4. 卸载wireguard"
+    echo "0. 退出"
     echo
     read -p "请输入数字:" num
     case "$num" in
@@ -142,6 +148,9 @@ start_menu(){
 	wireguard_update
 	;;
 	4)
+	wireguard_remove
+	;;
+	0)
 	exit 1
 	;;
 	*)
